@@ -26,9 +26,9 @@ services:
         - NODE_ENV=production
     container_name: agentnet-chat
     env_file:
-      - .env.production
+      - ./websites/chat/.env.production
     volumes:
-      - ./websites/chat/.env.production:/app/.env.production.local:ro
+      - ./websites/chat/.env.production:/app/.env:ro
     restart: unless-stopped
     ports:
       - "3006:3000"
