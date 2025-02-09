@@ -20,7 +20,6 @@ services:
       dockerfile: websites/chat/Dockerfile
       args:
         - NODE_ENV=production
-        - NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}
     container_name: agentnet-prod
     restart: unless-stopped
     ports:
