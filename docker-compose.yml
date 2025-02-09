@@ -28,7 +28,7 @@ services:
     env_file:
       - .env.production
     volumes:
-      - ./.env.production:/app/.env.production.local:ro
+      - ../../.env.production:/app/.env.production.local:ro
     restart: unless-stopped
     ports:
       - "3006:3000"
