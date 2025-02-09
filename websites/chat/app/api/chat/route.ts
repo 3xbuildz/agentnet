@@ -16,104 +16,87 @@ if (typeof window === 'undefined') {
     detail?: T;
   }
 
-  class CustomEventPolyfill<T = any> implements Event {
-    static readonly NONE = 0 as const;
-    static readonly CAPTURING_PHASE = 1 as const;
-    static readonly AT_TARGET = 2 as const;
-    static readonly BUBBLING_PHASE = 3 as const;
+  class CustomEventPolyfill<T = any> extends window.Event implements Event {
+    public readonly NONE: 0 = 0;
+    public readonly CAPTURING_PHASE: 1 = 1;
+    public readonly AT_TARGET: 2 = 2;
+    public readonly BUBBLING_PHASE: 3 = 3;
 
-    readonly NONE = CustomEventPolyfill.NONE;
-    readonly CAPTURING_PHASE = CustomEventPolyfill.CAPTURING_PHASE;
-    readonly AT_TARGET = CustomEventPolyfill.AT_TARGET;
-    readonly BUBBLING_PHASE = CustomEventPolyfill.BUBBLING_PHASE;
-
-    bubbles: boolean;
-    cancelable: boolean;
-    composed: boolean;
-    currentTarget: EventTarget | null;
-    defaultPrevented: boolean;
-    eventPhase: number;
-    isTrusted: boolean;
-    returnValue: boolean;
-    srcElement: EventTarget | null;
-    target: EventTarget | null;
-    timeStamp: number;
-    type: string;
-    detail: T;
-
-    // Private fields to track state
-    private _propagationStopped: boolean = false;
-    private _immediatePropagatonStopped: boolean = false;
-    private _path: EventTarget[] = [];
-    
-    constructor(type: string, eventInitDict: CustomEventInit<T> = {}) {
-      const event = new window.Event(type, eventInitDict);
-      
-      this.bubbles = event.bubbles;
-      this.cancelable = event.cancelable;
-      this.composed = event.composed;
-      this.currentTarget = event.currentTarget;
-      this.defaultPrevented = event.defaultPrevented;
-      this.eventPhase = event.eventPhase;
-      this.isTrusted = event.isTrusted;
-      this.returnValue = true;
-      this.srcElement = event.target;
-      this.target = event.target;
-      this.timeStamp = event.timeStamp;
-      this.type = event.type;
-      
-      this.detail = eventInitDict.detail as T;
-
-      // Initialize the event path if target exists
-      if (this.target) {
-        let node: EventTarget | null = this.target;
-        while (node) {
-          this._path.push(node);
-          // TypeScript doesn't know about parentNode on EventTarget
-          node = (node as any).parentNode || null;
-        }
-      }
-    }
+    public readonly bubbles: boolean;
+    public readonly cancelable: boolean;
+    public readonly composed: boolean;
+    public readonly currentTarget: EventTarget | null;
+    public readonly defaultPrevented: boolean;
+    public readonly eventPhase: number;
+    public readonly isTrusted: boolean;
+    public readonly target: EventTarget | null;
+    public readonly timeStamp: number;
+    public readonly type: string;
+    public detail: T;
 
     get cancelBubble(): boolean {
-      return this._propagationStopped;
+      return super.cancelBubble;
     }
 
     set cancelBubble(value: boolean) {
-      this._propagationStopped = value;
+      super.cancelBubble = value;
     }
 
-    composedPath(): EventTarget[] {
-      return this._path.slice();
+    get returnValue(): boolean {
+      return !this.defaultPrevented;
     }
 
-    preventDefault(): void {
-      if (this.cancelable) {
-        this.defaultPrevented = true;
-        this.returnValue = false;
+    set returnValue(value: boolean) {
+      if (!value) {
+        this.preventDefault();
       }
     }
 
+    get srcElement(): EventTarget | null {
+      return this.target;
+    }
+
+    constructor(type: string, eventInitDict: CustomEventInit<T> = {}) {
+      super(type, {
+        bubbles: eventInitDict.bubbles,
+        cancelable: eventInitDict.cancelable,
+        composed: eventInitDict.composed
+      });
+
+      // Initialize inherited properties
+      this.bubbles = super.bubbles;
+      this.cancelable = super.cancelable;
+      this.composed = super.composed;
+      this.currentTarget = super.currentTarget;
+      this.defaultPrevented = super.defaultPrevented;
+      this.eventPhase = super.eventPhase;
+      this.isTrusted = super.isTrusted;
+      this.target = super.target;
+      this.timeStamp = super.timeStamp;
+      this.type = super.type;
+      
+      // Add custom detail property
+      this.detail = eventInitDict.detail as T;
+    }
+
+    composedPath(): EventTarget[] {
+      return super.composedPath();
+    }
+
+    preventDefault(): void {
+      super.preventDefault();
+    }
+
     stopImmediatePropagation(): void {
-      this._immediatePropagatonStopped = true;
-      this.stopPropagation();
+      super.stopImmediatePropagation();
     }
 
     stopPropagation(): void {
-      this._propagationStopped = true;
-      this.cancelBubble = true;
+      super.stopPropagation();
     }
 
     initEvent(type: string, bubbles?: boolean, cancelable?: boolean): void {
-      Object.assign(this, {
-        type,
-        bubbles: bubbles ?? this.bubbles,
-        cancelable: cancelable ?? this.cancelable,
-        defaultPrevented: false,
-      });
-      
-      this._propagationStopped = false;
-      this._immediatePropagatonStopped = false;
+      super.initEvent(type, bubbles, cancelable);
     }
   }
 
@@ -131,9 +114,13 @@ if (typeof window === 'undefined') {
         if (event instanceof CustomEventPolyfill) {
           return listener.call(this, event);
         }
-        return listener.call(this, new CustomEventPolyfill(event.type, {
+        const customEvent = new CustomEventPolyfill(event.type, {
+          bubbles: event.bubbles,
+          cancelable: event.cancelable,
+          composed: event.composed,
           detail: event
-        }));
+        });
+        return listener.call(this, customEvent);
       };
       return originalAddEventListener.call(this, type, wrappedListener, options);
     }
