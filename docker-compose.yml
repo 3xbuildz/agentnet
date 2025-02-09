@@ -2,36 +2,35 @@ services:
   registry:
     image: ${DOCKER_REGISTRY:-3xbuilds}/agentnet-registry:${TAG:-latest}
     build:
-      context: .
+      context: ../..
       target: registry
-      dockerfile: Dockerfile
-      args:
-        - NODE_ENV=production
+      dockerfile: websites/chat/Dockerfile
     container_name: agentnet-registry
     restart: unless-stopped
     ports:
-      - "3000:3000"
-    environment:
-      - NODE_ENV=production
+      - "${REGISTRY_PORT:-127.0.0.1:3000}:3000"
     profiles: 
       - prod
 
-  chat:
-    image: ${DOCKER_REGISTRY:-3xbuilds}/agentnet-chat:${TAG:-latest}
+  app-prod:
+    image: ${DOCKER_REGISTRY:-3xbuilds}/agentnet-prod:${TAG:-latest}
     build:
-      context: .
+      context: ../..
       target: chat
-      dockerfile: Dockerfile
+      dockerfile: websites/chat/Dockerfile
       args:
         - NODE_ENV=production
-    container_name: agentnet-chat
+        - NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}
+    container_name: agentnet-prod
     restart: unless-stopped
     ports:
-      - "3001:3000"
+      - "${PROD_PORT:-127.0.0.1:3005}:3001"
     environment:
       - NODE_ENV=production
-      - REGISTRY_URL=http://registry:3000
-    depends_on:
-      - registry
+      - PORT=3001
+    env_file:
+      - .env.production
+    volumes:
+      - ./.env.production:/app/.env.production.local:ro
     profiles: 
       - prod
