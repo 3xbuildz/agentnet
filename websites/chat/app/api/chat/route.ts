@@ -2,7 +2,7 @@ import { agentManager } from '@/agents/agentInit';
 import { NextResponse } from 'next/server';
 
 // Mark this as a server-side only route
-export const runtime = 'nodejs';
+// export const runtime = 'nodejs';
 
 export async function POST(req: Request) {
   try {
