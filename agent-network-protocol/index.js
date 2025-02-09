@@ -12,7 +12,7 @@ import { getProtocolTools } from './tools.js';
 
 export default class AgentNetworkProtocol {
     constructor() {
-        this.registrarUrl = 'http://localhost:3000';
+        this.registrarUrl = 'http://localhost:3005';
         this.messageHandlers = new Map();
         this.pendingResponses = new Map();
         this.nodes = new Map();
