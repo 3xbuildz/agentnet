@@ -22,6 +22,8 @@ CMD ["node", "registryServer.js"]
 
 # Chat website build stage
 FROM base AS chat-builder
+ARG NODE_ENV=production
+ENV NODE_ENV=${NODE_ENV}
 COPY --from=chat-deps /app/node_modules ./node_modules
 COPY agent-network-protocol ./agent-network-protocol
 WORKDIR /app/agent-network-protocol

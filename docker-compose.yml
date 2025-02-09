@@ -10,7 +10,7 @@ services:
     container_name: agentnet-registry
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "3005:3000"
     environment:
       - NODE_ENV=production
     profiles: 
@@ -25,12 +25,16 @@ services:
       args:
         - NODE_ENV=production
     container_name: agentnet-chat
+    env_file:
+      - .env.production
+    volumes:
+      - ./.env.production:/app/.env.production.local:ro
     restart: unless-stopped
     ports:
-      - "3001:3000"
+      - "3006:3000"
     environment:
       - NODE_ENV=production
-      - REGISTRY_URL=http://registry:3000
+      - REGISTRY_URL=http://registry:3005
     depends_on:
       - registry
     profiles: 
