@@ -44,12 +44,8 @@ RUN addgroup --system --gid 1001 nodejs \
     && adduser --system --uid 1001 nextjs \
     && chown -R nextjs:nodejs /app
 
-COPY --from=chat-builder --chown=nextjs:nodejs /app/websites/chat/.next/standalone ./
-COPY --from=chat-builder --chown=nextjs:nodejs /app/websites/chat/.next/static ./.next/static
-COPY --from=chat-builder --chown=nextjs:nodejs /app/websites/chat/public ./public
-
-# Copy agent-network-protocol as a module
-COPY --from=chat-builder --chown=nextjs:nodejs /app/agent-network-protocol /app/node_modules/agent-network-protocol
+    COPY --from=chat-builder --chown=nextjs:nodejs /app/websites/chat ./
+    COPY --from=chat-builder --chown=nextjs:nodejs /app/agent-network-protocol /app/node_modules/agent-network-protocol
 
 USER nextjs
 EXPOSE 3000
