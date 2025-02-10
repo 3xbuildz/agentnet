@@ -34,7 +34,7 @@ COPY . .
 WORKDIR /app/websites/chat
 RUN npm install @langchain/core
 RUN npm install
-RUN NEXT_PRIVATE_STANDALONE=true npm run build
+# RUN NEXT_PRIVATE_STANDALONE=true npm run build
 
 # Chat website production stage
 FROM base AS chat
@@ -56,4 +56,4 @@ EXPOSE 3000
 ENV PORT 3000
 ENV NEXT_TELEMETRY_DISABLED 1
 
-CMD ["node", "server.js"]
+CMD ["npm", "run", "dev"]

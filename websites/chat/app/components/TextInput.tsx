@@ -43,7 +43,7 @@ const TextInput = () => {
         }
       } catch (error) {
         console.error('Error:', error);
-        addMessage('OpenAI Key Error', 'system');
+        addMessage('OpenAI Quota Error', 'system');
       } finally {
         setIsTyping(false);
       }
