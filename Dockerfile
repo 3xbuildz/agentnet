@@ -25,11 +25,15 @@ FROM base AS chat-builder
 ARG NODE_ENV=production
 ENV NODE_ENV=${NODE_ENV}
 
+RUN npm cache clean --force
+
 COPY . /app
 WORKDIR /app/agent-network-protocol
 RUN npm install
 
 WORKDIR /app/websites/chat
+RUN rm -rf node_modules
+RUN npm cache clean --force
 RUN npm install
 
 FROM base AS chat
@@ -41,7 +45,7 @@ RUN addgroup --system --gid 1001 nodejs \
 COPY --from=chat-builder --chown=nextjs:nodejs /app/websites/chat ./
 COPY --from=chat-builder --chown=nextjs:nodejs /app/agent-network-protocol /app/node_modules/agent-network-protocol
 
-RUN npm install
+RUN npm install --verbose
 
 USER nextjs
 EXPOSE 3000
