@@ -6,6 +6,10 @@ import { noise } from "@libp2p/noise";
 import { tcp } from "@libp2p/tcp";
 import { createLibp2p } from "libp2p";
 import { EventEmitter } from 'events';
+import axios from "axios";
+import { SystemAgent } from './agents/SystemAgent.js';
+import { UserAgent } from './agents/UserAgent.js';
+import { getProtocolTools } from './tools.js';
 
 export default class AgentNetworkProtocol {
     constructor() {
