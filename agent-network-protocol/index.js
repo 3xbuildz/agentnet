@@ -20,7 +20,6 @@ export default class AgentNetworkProtocol {
         this.systemAgents = new Map();
         this.userAgents = new Map();
         this.eventEmitter = new EventEmitter();
-        // Increase max listeners to prevent memory leak warnings
         this.eventEmitter.setMaxListeners(100);
     }
 
@@ -68,19 +67,9 @@ export default class AgentNetworkProtocol {
         const topic = `/agent/${node.peerId.toString()}`;
         await node.services.pubsub.subscribe(topic);
 
-        // Use direct event handler instead of CustomEvent
-        node.services.pubsub.addEventListener = (event, handler) => {
-            this.eventEmitter.on(event, handler);
-        };
-
-        // Hook into the pubsub message event
-        node.services.pubsub.topicHandlers.set(topic, (message) => {
-            this.eventEmitter.emit('message', {
-                detail: {
-                    topic,
-                    data: message.data
-                }
-            });
+        // Direct message handling without CustomEvent
+        node.services.pubsub.topicHandlers.set(topic, async (message) => {
+            await this.handleIncomingMessage(message);
         });
 
         return node;
@@ -201,13 +190,11 @@ export default class AgentNetworkProtocol {
                 });
             });
 
-            // Ensure subscription
             if (!senderNode.services.pubsub.getTopics().includes(topic)) {
                 await senderNode.services.pubsub.subscribe(topic);
                 await new Promise(resolve => setTimeout(resolve, 1000));
             }
 
-            // Send message
             const messageData = JSON.stringify({
                 to: targetPeerId,
                 from: senderNode.peerId.toString(),
@@ -221,7 +208,6 @@ export default class AgentNetworkProtocol {
             );
             console.log('Message published successfully');
 
-            // Wait for response
             return await responsePromise;
 
         } catch (error) {
@@ -290,7 +276,6 @@ export default class AgentNetworkProtocol {
             console.error('Error handling message:', error);
         }
     }
-
 
     async _registerAgent(registrationData) {
         try {
