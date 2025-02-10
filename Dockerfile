@@ -33,6 +33,7 @@ WORKDIR /app
 COPY . .
 WORKDIR /app/websites/chat
 RUN npm install @langchain/core
+RUN npm install next@latest
 RUN npm install
 # RUN NEXT_PRIVATE_STANDALONE=true npm run build
 
