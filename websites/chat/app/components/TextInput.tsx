@@ -43,7 +43,7 @@ const TextInput = () => {
         }
       } catch (error) {
         console.error('Error:', error);
-        addMessage('Sorry, there was an error processing your request.', 'system');
+        addMessage('OpenAI Key Error', 'system');
       } finally {
         setIsTyping(false);
       }
