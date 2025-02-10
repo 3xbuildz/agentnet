@@ -49,7 +49,6 @@ export default class AgentNetworkProtocol {
 
     async createNode() {
         const port = Math.floor(Math.random() * (65535 - 1024) + 1024);
-
         const nodeConfig = {
             ...this.baseConfig,
             addresses: {
@@ -60,19 +59,19 @@ export default class AgentNetworkProtocol {
         const node = await createLibp2p(nodeConfig);
         await node.start();
 
-        // Wait for node to be ready
         await new Promise(resolve => setTimeout(resolve, 1000));
 
-        // Subscribe to messages for this node
         const topic = `/agent/${node.peerId.toString()}`;
         await node.services.pubsub.subscribe(topic);
 
-        // Set up message handler
-        node.services.pubsub.addEventListener('message', (evt) => {
-            if (evt.detail.topic === topic) {
-                this.handleIncomingMessage(evt.detail);
-            }
-        });
+        // Use the server event emitter instead of browser events
+        if (global.libp2pEventEmitter) {
+            global.libp2pEventEmitter.addEventListener('message', (evt) => {
+                if (evt.detail.topic === topic) {
+                    this.handleIncomingMessage(evt.detail);
+                }
+            });
+        }
 
         return node;
     }
@@ -223,7 +222,7 @@ export default class AgentNetworkProtocol {
 
     async handleIncomingMessage(message) {
         try {
-            const data = JSON.parse(new TextDecoder().decode(message.data));
+            const data = JSON.parse(typeof message.data === 'string' ? message.data : new TextDecoder().decode(message.data));
             console.log('\n=== Incoming Message ===');
             console.log('Message data:', data);
             console.log('Registered handlers:', Array.from(this.messageHandlers.keys()));
@@ -261,7 +260,7 @@ export default class AgentNetworkProtocol {
                         return;
                     }
 
-                    // Ensure response has isResponse flag
+                    // Prepare response data
                     const responseData = {
                         to: data.from,
                         from: data.to,
@@ -272,14 +271,32 @@ export default class AgentNetworkProtocol {
 
                     console.log('Sending response:', responseData);
                     const responseTopic = `/agent/${data.from}`;
-                    await receivingNode.services.pubsub.publish(
-                        responseTopic,
-                        new TextEncoder().encode(JSON.stringify(responseData))
-                    );
+
+                    // Use the server event emitter for publishing
+                    if (global.libp2pEventEmitter) {
+                        const encodedResponse = new TextEncoder().encode(JSON.stringify(responseData));
+                        global.libp2pEventEmitter.dispatchEvent('message', {
+                            topic: responseTopic,
+                            data: encodedResponse
+                        });
+
+                        // Also publish through libp2p for network propagation
+                        await receivingNode.services.pubsub.publish(
+                            responseTopic,
+                            encodedResponse
+                        );
+                    } else {
+                        // Fallback to just libp2p publishing if emitter isn't available
+                        await receivingNode.services.pubsub.publish(
+                            responseTopic,
+                            new TextEncoder().encode(JSON.stringify(responseData))
+                        );
+                    }
                     console.log('Response sent successfully');
+
                 } catch (error) {
                     console.error('Error processing message:', error);
-                    // Send error response back
+                    // Prepare error response
                     const errorResponse = {
                         to: data.from,
                         from: data.to,
@@ -287,11 +304,22 @@ export default class AgentNetworkProtocol {
                         timestamp: Date.now(),
                         isResponse: true
                     };
+
                     const receivingNode = this.nodes.get(data.to);
                     if (receivingNode) {
+                        const encodedError = new TextEncoder().encode(JSON.stringify(errorResponse));
+
+                        // Use both event emitter and libp2p for error responses
+                        if (global.libp2pEventEmitter) {
+                            global.libp2pEventEmitter.dispatchEvent('message', {
+                                topic: `/agent/${data.from}`,
+                                data: encodedError
+                            });
+                        }
+
                         await receivingNode.services.pubsub.publish(
                             `/agent/${data.from}`,
-                            new TextEncoder().encode(JSON.stringify(errorResponse))
+                            encodedError
                         );
                     }
                 }
