@@ -17,49 +17,43 @@ RUN npm install
 FROM base AS registry
 COPY --from=registry-deps /app/node_modules ./node_modules
 COPY agent-network-protocol ./
-EXPOSE 3000 
+EXPOSE 3000
 CMD ["node", "registryServer.js"]
 
 # Chat website build stage
 FROM base AS chat-builder
 ARG NODE_ENV=production
 ENV NODE_ENV=${NODE_ENV}
-
-RUN npm cache clean --force
-RUN rm -rf /root/.npm
-
-COPY . /app
-
+COPY --from=chat-deps /app/node_modules ./node_modules
+COPY agent-network-protocol ./agent-network-protocol
 WORKDIR /app/agent-network-protocol
 RUN npm install
 
+WORKDIR /app
+COPY . .
 WORKDIR /app/websites/chat
-RUN rm -rf node_modules package-lock.json
-RUN npm cache clean --force
-
-RUN npm install next@15.1.6 \
-    react@18.2.0 \
-    react-dom@18.2.0 \
-    agent-network-protocol@file:../../agent-network-protocol
-
+RUN npm install @langchain/core
 RUN npm install
+RUN NEXT_PRIVATE_STANDALONE=true npm run build
 
+# Chat website production stage
 FROM base AS chat
 WORKDIR /app
 
 RUN addgroup --system --gid 1001 nodejs \
-    && adduser --system --uid 1001 nextjs
+    && adduser --system --uid 1001 nextjs \
+    && chown -R nextjs:nodejs /app
 
-COPY --from=chat-builder --chown=nextjs:nodejs /app/websites/chat ./
+COPY --from=chat-builder --chown=nextjs:nodejs /app/websites/chat/.next/standalone ./
+COPY --from=chat-builder --chown=nextjs:nodejs /app/websites/chat/.next/static ./.next/static
+COPY --from=chat-builder --chown=nextjs:nodejs /app/websites/chat/public ./public
+
+# Copy agent-network-protocol as a module
 COPY --from=chat-builder --chown=nextjs:nodejs /app/agent-network-protocol /app/node_modules/agent-network-protocol
-
-RUN npm cache clean --force
-RUN rm -rf node_modules package-lock.json
-RUN npm install
 
 USER nextjs
 EXPOSE 3000
 ENV PORT 3000
 ENV NEXT_TELEMETRY_DISABLED 1
 
-CMD ["sh", "-c", "npx next dev" ]
+CMD ["node", "server.js"]

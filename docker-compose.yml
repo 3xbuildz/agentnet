@@ -29,7 +29,6 @@ services:
       - ./websites/chat/.env.production
     volumes:
       - ./websites/chat/.env.production:/app/.env:ro
-      - ./websites/chat:/app
     restart: unless-stopped
     ports:
       - "3006:3000"
