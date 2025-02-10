@@ -25,8 +25,6 @@ FROM base AS chat-builder
 ARG NODE_ENV=production
 ENV NODE_ENV=${NODE_ENV}
 
-RUN npm install -g npm@latest
-
 COPY . /app
 WORKDIR /app/agent-network-protocol
 RUN npm install
@@ -50,4 +48,4 @@ EXPOSE 3000
 ENV PORT 3000
 ENV NEXT_TELEMETRY_DISABLED 1
 
-CMD ["npm", "run", "dev"]
+CMD ["npx", "next", "dev"]
