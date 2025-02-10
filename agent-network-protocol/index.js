@@ -4,11 +4,8 @@ import { identify } from '@libp2p/identify';
 import { kadDHT } from '@libp2p/kad-dht';
 import { noise } from "@libp2p/noise";
 import { tcp } from "@libp2p/tcp";
-import axios from "axios";
 import { createLibp2p } from "libp2p";
-import { SystemAgent } from './agents/SystemAgent.js';
-import { UserAgent } from './agents/UserAgent.js';
-import { getProtocolTools } from './tools.js';
+import { EventEmitter } from 'events';
 
 export default class AgentNetworkProtocol {
     constructor() {
@@ -18,6 +15,9 @@ export default class AgentNetworkProtocol {
         this.nodes = new Map();
         this.systemAgents = new Map();
         this.userAgents = new Map();
+        this.eventEmitter = new EventEmitter();
+        // Increase max listeners to prevent memory leak warnings
+        this.eventEmitter.setMaxListeners(100);
     }
 
     async initialize() {
@@ -64,14 +64,20 @@ export default class AgentNetworkProtocol {
         const topic = `/agent/${node.peerId.toString()}`;
         await node.services.pubsub.subscribe(topic);
 
-        // Use the server event emitter instead of browser events
-        if (global.libp2pEventEmitter) {
-            global.libp2pEventEmitter.addEventListener('message', (evt) => {
-                if (evt.detail.topic === topic) {
-                    this.handleIncomingMessage(evt.detail);
+        // Use direct event handler instead of CustomEvent
+        node.services.pubsub.addEventListener = (event, handler) => {
+            this.eventEmitter.on(event, handler);
+        };
+
+        // Hook into the pubsub message event
+        node.services.pubsub.topicHandlers.set(topic, (message) => {
+            this.eventEmitter.emit('message', {
+                detail: {
+                    topic,
+                    data: message.data
                 }
             });
-        }
+        });
 
         return node;
     }
@@ -225,42 +231,25 @@ export default class AgentNetworkProtocol {
             const data = JSON.parse(typeof message.data === 'string' ? message.data : new TextDecoder().decode(message.data));
             console.log('\n=== Incoming Message ===');
             console.log('Message data:', data);
-            console.log('Registered handlers:', Array.from(this.messageHandlers.keys()));
-            console.log('Pending responses:', Array.from(this.pendingResponses.keys()));
 
             if (data.isResponse) {
-                console.log('Processing response message');
                 const resolver = this.pendingResponses.get(data.to);
                 if (resolver) {
-                    console.log('Found resolver for response');
                     resolver(data.content);
                     this.pendingResponses.delete(data.to);
-                } else {
-                    console.log('No resolver found for response');
                 }
                 return;
             }
 
-            // Handle new requests
-            console.log('Processing new request');
             const handler = this.messageHandlers.get(data.to);
             if (handler) {
-                console.log('Found message handler, invoking...');
                 try {
                     const response = await handler(data.content);
-                    console.log('Handler response:', response);
-                    if (!response) {
-                        console.log('No response from handler');
-                        return;
-                    }
+                    if (!response) return;
 
                     const receivingNode = this.nodes.get(data.to);
-                    if (!receivingNode) {
-                        console.log('No receiving node found');
-                        return;
-                    }
+                    if (!receivingNode) return;
 
-                    // Prepare response data
                     const responseData = {
                         to: data.from,
                         from: data.to,
@@ -269,34 +258,13 @@ export default class AgentNetworkProtocol {
                         isResponse: true
                     };
 
-                    console.log('Sending response:', responseData);
                     const responseTopic = `/agent/${data.from}`;
-
-                    // Use the server event emitter for publishing
-                    if (global.libp2pEventEmitter) {
-                        const encodedResponse = new TextEncoder().encode(JSON.stringify(responseData));
-                        global.libp2pEventEmitter.dispatchEvent('message', {
-                            topic: responseTopic,
-                            data: encodedResponse
-                        });
-
-                        // Also publish through libp2p for network propagation
-                        await receivingNode.services.pubsub.publish(
-                            responseTopic,
-                            encodedResponse
-                        );
-                    } else {
-                        // Fallback to just libp2p publishing if emitter isn't available
-                        await receivingNode.services.pubsub.publish(
-                            responseTopic,
-                            new TextEncoder().encode(JSON.stringify(responseData))
-                        );
-                    }
-                    console.log('Response sent successfully');
+                    const encodedResponse = new TextEncoder().encode(JSON.stringify(responseData));
+                    
+                    await receivingNode.services.pubsub.publish(responseTopic, encodedResponse);
 
                 } catch (error) {
                     console.error('Error processing message:', error);
-                    // Prepare error response
                     const errorResponse = {
                         to: data.from,
                         from: data.to,
@@ -307,29 +275,18 @@ export default class AgentNetworkProtocol {
 
                     const receivingNode = this.nodes.get(data.to);
                     if (receivingNode) {
-                        const encodedError = new TextEncoder().encode(JSON.stringify(errorResponse));
-
-                        // Use both event emitter and libp2p for error responses
-                        if (global.libp2pEventEmitter) {
-                            global.libp2pEventEmitter.dispatchEvent('message', {
-                                topic: `/agent/${data.from}`,
-                                data: encodedError
-                            });
-                        }
-
                         await receivingNode.services.pubsub.publish(
                             `/agent/${data.from}`,
-                            encodedError
+                            new TextEncoder().encode(JSON.stringify(errorResponse))
                         );
                     }
                 }
-            } else {
-                console.log('No handler found for message');
             }
         } catch (error) {
             console.error('Error handling message:', error);
         }
     }
+
 
     async _registerAgent(registrationData) {
         try {
