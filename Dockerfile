@@ -62,4 +62,4 @@ EXPOSE 3000
 ENV PORT 3000
 ENV NEXT_TELEMETRY_DISABLED 1
 
-CMD ["sh", "-c", "npx next dev --verbose" ]
+CMD ["sh", "-c", "npx next dev" ]
