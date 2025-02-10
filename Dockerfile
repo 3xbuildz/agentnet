@@ -26,14 +26,22 @@ ARG NODE_ENV=production
 ENV NODE_ENV=${NODE_ENV}
 
 RUN npm cache clean --force
+RUN rm -rf /root/.npm
 
 COPY . /app
+
 WORKDIR /app/agent-network-protocol
 RUN npm install
 
 WORKDIR /app/websites/chat
-RUN rm -rf node_modules
+RUN rm -rf node_modules package-lock.json
 RUN npm cache clean --force
+
+RUN npm install next@15.1.6 \
+    react@18.2.0 \
+    react-dom@18.2.0 \
+    agent-network-protocol@file:../../agent-network-protocol
+
 RUN npm install
 
 FROM base AS chat
@@ -45,11 +53,13 @@ RUN addgroup --system --gid 1001 nodejs \
 COPY --from=chat-builder --chown=nextjs:nodejs /app/websites/chat ./
 COPY --from=chat-builder --chown=nextjs:nodejs /app/agent-network-protocol /app/node_modules/agent-network-protocol
 
-RUN npm install --verbose
+RUN npm cache clean --force
+RUN rm -rf node_modules package-lock.json
+RUN npm install
 
 USER nextjs
 EXPOSE 3000
 ENV PORT 3000
 ENV NEXT_TELEMETRY_DISABLED 1
 
-CMD ["npx", "next", "dev"]
+CMD ["sh", "-c", "npx next dev --verbose" ]
